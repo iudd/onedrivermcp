@@ -1,6 +1,6 @@
 import express from 'express';
 import passport from 'passport';
-import { Strategy as MicrosoftStrategy } from 'passport-microsoft';
+import { BearerStrategy } from 'passport-azure-ad';
 import jwt from 'jsonwebtoken';
 import { asyncHandler, createError } from '../middleware/errorHandler.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
@@ -8,26 +8,25 @@ import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-// 配置 Microsoft OAuth 策略
-passport.use(new MicrosoftStrategy({
+// 配置 Azure AD Bearer 策略（用于验证 access token）
+passport.use(new BearerStrategy({
+  identityMetadata: 'https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
   clientID: process.env.ONEDRIVE_CLIENT_ID!,
-  clientSecret: process.env.ONEDRIVE_CLIENT_SECRET!,
-  callbackURL: process.env.ONEDRIVE_REDIRECT_URI!,
-  scope: ['user.read', 'files.read', 'files.read.all', 'files.readwrite', 'files.readwrite.all']
-}, async (accessToken, refreshToken, profile, done) => {
+  validateIssuer: false,
+  passReqToCallback: false
+}, async (token, done) => {
   try {
-    // 验证用户信息并生成 JWT
+    // 验证 token 并获取用户信息
     const user = {
-      id: profile.id,
-      displayName: profile.displayName,
-      email: profile.emails?.[0]?.value,
-      accessToken,
-      refreshToken
+      id: token.oid || token.sub,
+      displayName: token.name,
+      email: token.preferred_username,
+      accessToken: token
     };
     
     done(null, user);
   } catch (error) {
-    logger.error('OAuth authentication error:', error);
+    logger.error('Azure AD authentication error:', error);
     done(error, null);
   }
 }));
@@ -49,24 +48,23 @@ passport.deserializeUser(async (id: string, done) => {
 });
 
 /**
- * 启动 OneDrive 认证
+ * 验证 access token
  */
-router.get('/onedrive', authLimiter, passport.authenticate('microsoft', {
-  session: false
-}));
-
-/**
- * OAuth 回调处理
- */
-router.get('/callback', authLimiter, asyncHandler(async (req, res, next) => {
-  passport.authenticate('microsoft', { session: false }, (error, user) => {
+router.post('/verify', authLimiter, asyncHandler(async (req, res, next) => {
+  passport.authenticate('oauth-bearer', { session: false }, (error, user) => {
     if (error) {
-      logger.error('OAuth callback error:', error);
-      return res.redirect(`/auth/failure?error=${encodeURIComponent(error.message)}`);
+      logger.error('Token verification error:', error);
+      return res.status(401).json({
+        success: false,
+        error: 'Token verification failed'
+      });
     }
     
     if (!user) {
-      return res.redirect('/auth/failure?error=Authentication failed');
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication failed'
+      });
     }
     
     // 生成 JWT token
@@ -80,9 +78,17 @@ router.get('/callback', authLimiter, asyncHandler(async (req, res, next) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
     
-    // 重定向到前端页面，携带 token
-    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/success?token=${token}&accessToken=${user.accessToken}`;
-    res.redirect(redirectUrl);
+    res.json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          displayName: user.displayName,
+          email: user.email
+        }
+      }
+    });
   })(req, res, next);
 }));
 
