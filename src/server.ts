@@ -20,13 +20,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 明确禁用信任代理，避免 rate limiter 安全警告
-app.set('trust proxy', false);
-
-// 明确禁用信任代理，避免 rate limiter 安全警告
-app.set('trust proxy', false);
-
-// 明确禁用信任代理，避免 rate limiter 安全警告
+// 安全配置：明确禁用信任代理，避免 rate limiter 警告
 app.set('trust proxy', false);
 
 // Security middleware
@@ -73,6 +67,11 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/mcp', mcpRoutes);
+
+// 添加根路径的 /tools 重定向到 /mcp/tools（解决404错误）
+app.get('/tools', (req, res) => {
+  res.redirect('/mcp/tools');
+});
 
 // Error handling
 app.use(errorHandler);
