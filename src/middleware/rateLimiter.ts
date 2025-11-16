@@ -9,6 +9,7 @@ const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false }, // 明确禁用信任代理验证
 });
 
 // 认证相关 API 限流（更严格）
@@ -20,6 +21,7 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false }, // 明确禁用信任代理验证
 });
 
 // MCP SSE 连接限流
@@ -31,6 +33,7 @@ const mcpLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false }, // 明确禁用信任代理验证
 });
 
 // 文件上传限流
@@ -42,6 +45,7 @@ const uploadLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false }, // 明确禁用信任代理验证
 });
 
 export { apiLimiter, authLimiter, mcpLimiter, uploadLimiter };
