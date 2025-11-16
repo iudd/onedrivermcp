@@ -20,9 +20,8 @@ const api_js_1 = __importDefault(require("./routes/api.js"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
-
-// Trust proxy settings for reverse proxy environments (e.g., Render.com)
-app.set('trust proxy', true);
+// 配置信任代理以支持Render平台的反向代理
+app.set('trust proxy', ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
 // Security middleware
 app.use((0, helmet_1.default)({
     contentSecurityPolicy: {
@@ -61,6 +60,10 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', auth_js_1.default);
 app.use('/api', api_js_1.default);
 app.use('/mcp', mcp_js_1.default);
+// 添加根路径的 /tools 重定向到 /mcp/tools（解决404错误）
+app.get('/tools', (req, res) => {
+    res.redirect('/mcp/tools');
+});
 // Error handling
 app.use(errorHandler_js_1.errorHandler);
 // 404 handler
@@ -92,3 +95,4 @@ server.listen(PORT, () => {
     logger_js_1.logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
 });
 exports.default = app;
+//# sourceMappingURL=server.js.map

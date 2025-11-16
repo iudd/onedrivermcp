@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import multer from 'multer';
 import { OneDriveService } from '../services/onedriveService.js';
 import { asyncHandler, createError } from '../middleware/errorHandler.js';
@@ -23,7 +23,7 @@ const upload = multer({
 /**
  * 获取文件列表
  */
-router.get('/files', asyncHandler(async (req, res) => {
+router.get('/files', asyncHandler(async (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -270,7 +270,7 @@ router.post('/batch', asyncHandler(async (req, res) => {
   
   const accessToken = authHeader.substring(7);
   const oneDriveService = new OneDriveService(accessToken);
-  const results = [];
+  const results: any[] = [];
   
   for (const operation of operations) {
     try {

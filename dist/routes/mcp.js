@@ -1,17 +1,20 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
+const express_1 = __importDefault(require("express"));
 const uuid_1 = require("uuid");
-const mcpService_1 = require("../services/mcpService");
-const rateLimiter_1 = require("../middleware/rateLimiter");
-const errorHandler_1 = require("../middleware/errorHandler");
-const logger_1 = require("../utils/logger");
-const router = (0, express_1.Router)();
-const mcpService = new mcpService_1.MCPService();
+const mcpService_js_1 = require("../services/mcpService.js");
+const rateLimiter_js_1 = require("../middleware/rateLimiter.js");
+const errorHandler_js_1 = require("../middleware/errorHandler.js");
+const logger_js_1 = require("../utils/logger.js");
+const router = express_1.default.Router();
+const mcpService = new mcpService_js_1.MCPService();
 /**
  * SSE 连接端点 - 建立 MCP 协议连接
  */
-router.get('/sse', rateLimiter_1.mcpLimiter, (0, errorHandler_1.asyncHandler)(async (req, res) => {
+router.get('/sse', rateLimiter_js_1.mcpLimiter, (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
     // 设置 SSE 响应头
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -47,7 +50,7 @@ router.get('/sse', rateLimiter_1.mcpLimiter, (0, errorHandler_1.asyncHandler)(as
             mcpService.handleClientEvent(connectionId, event);
         }
         catch (error) {
-            logger_1.logger.error('Error parsing client event:', error);
+            logger_js_1.logger.error('Error parsing client event:', error);
         }
     });
     // 发送初始连接确认
@@ -56,7 +59,7 @@ router.get('/sse', rateLimiter_1.mcpLimiter, (0, errorHandler_1.asyncHandler)(as
 /**
  * 获取 MCP 工具列表
  */
-router.get('/tools', (0, errorHandler_1.asyncHandler)(async (req, res) => {
+router.get('/tools', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
     const tools = mcpService.getTools();
     res.json({
         success: true,
@@ -69,7 +72,7 @@ router.get('/tools', (0, errorHandler_1.asyncHandler)(async (req, res) => {
 /**
  * 获取 MCP 服务器信息
  */
-router.get('/info', (0, errorHandler_1.asyncHandler)(async (req, res) => {
+router.get('/info', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
     res.json({
         success: true,
         data: {
@@ -89,7 +92,7 @@ router.get('/info', (0, errorHandler_1.asyncHandler)(async (req, res) => {
 /**
  * 健康检查端点
  */
-router.get('/health', (0, errorHandler_1.asyncHandler)(async (req, res) => {
+router.get('/health', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
     const connections = mcpService.connections.size || 0;
     res.json({
         status: 'OK',
@@ -101,7 +104,7 @@ router.get('/health', (0, errorHandler_1.asyncHandler)(async (req, res) => {
 /**
  * 清理过期连接（管理员端点）
  */
-router.post('/cleanup', (0, errorHandler_1.asyncHandler)(async (req, res) => {
+router.post('/cleanup', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
     mcpService.cleanupExpiredConnections();
     res.json({
         success: true,
@@ -109,3 +112,4 @@ router.post('/cleanup', (0, errorHandler_1.asyncHandler)(async (req, res) => {
     });
 }));
 exports.default = router;
+//# sourceMappingURL=mcp.js.map

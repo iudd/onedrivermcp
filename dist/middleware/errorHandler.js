@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createError = exports.asyncHandler = exports.errorHandler = void 0;
-const logger_1 = require("../utils/logger");
+const logger_js_1 = require("../utils/logger.js");
 const errorHandler = (error, req, res, next) => {
     let { statusCode = 500, message } = error;
     // 记录错误
-    logger_1.logger.error('Error occurred:', {
+    logger_js_1.logger.error('Error occurred:', {
         message: error.message,
         stack: error.stack,
         url: req.url,
@@ -58,3 +58,4 @@ const createError = (message, statusCode = 500, isOperational = true) => {
     return error;
 };
 exports.createError = createError;
+//# sourceMappingURL=errorHandler.js.map

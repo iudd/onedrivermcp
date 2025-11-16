@@ -3,13 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MCPService = void 0;
 const events_1 = require("events");
 const uuid_1 = require("uuid");
-const onedriveService_1 = require("./onedriveService");
-const logger_1 = require("../utils/logger");
+const onedriveService_js_1 = require("./onedriveService.js");
+const logger_js_1 = require("../utils/logger.js");
 class MCPService extends events_1.EventEmitter {
+    connections = new Map();
+    tools = new Map();
     constructor() {
         super();
-        this.connections = new Map();
-        this.tools = new Map();
         this.initializeTools();
     }
     /**
@@ -151,14 +151,14 @@ class MCPService extends events_1.EventEmitter {
             lastActivity: Date.now(),
             accessToken: null
         });
-        logger_1.logger.info(`MCP connection established: ${connectionId}`);
+        logger_js_1.logger.info(`MCP connection established: ${connectionId}`);
     }
     /**
      * 移除 SSE 连接
      */
     removeConnection(connectionId) {
         this.connections.delete(connectionId);
-        logger_1.logger.info(`MCP connection closed: ${connectionId}`);
+        logger_js_1.logger.info(`MCP connection closed: ${connectionId}`);
     }
     /**
      * 发送事件到客户端
@@ -166,7 +166,7 @@ class MCPService extends events_1.EventEmitter {
     sendEvent(connectionId, event) {
         const connection = this.connections.get(connectionId);
         if (!connection) {
-            logger_1.logger.warn(`Connection not found: ${connectionId}`);
+            logger_js_1.logger.warn(`Connection not found: ${connectionId}`);
             return;
         }
         try {
@@ -174,7 +174,7 @@ class MCPService extends events_1.EventEmitter {
             connection.response.write(data);
         }
         catch (error) {
-            logger_1.logger.error(`Error sending event to ${connectionId}:`, error);
+            logger_js_1.logger.error(`Error sending event to ${connectionId}:`, error);
             this.removeConnection(connectionId);
         }
     }
@@ -238,7 +238,7 @@ class MCPService extends events_1.EventEmitter {
                 }
             }
         });
-        logger_1.logger.info(`MCP connection initialized: ${connectionId}`);
+        logger_js_1.logger.info(`MCP connection initialized: ${connectionId}`);
     }
     /**
      * 处理工具调用
@@ -260,7 +260,7 @@ class MCPService extends events_1.EventEmitter {
             data: { progress: 0, message: '开始处理...' }
         });
         try {
-            const oneDriveService = new onedriveService_1.OneDriveService(connection.accessToken);
+            const oneDriveService = new onedriveService_js_1.OneDriveService(connection.accessToken);
             const result = await this.executeTool(oneDriveService, tool, args, event.callId, connectionId);
             this.sendEvent(connectionId, {
                 type: 'tool_result',
@@ -444,3 +444,4 @@ class MCPService extends events_1.EventEmitter {
     }
 }
 exports.MCPService = MCPService;
+//# sourceMappingURL=mcpService.js.map

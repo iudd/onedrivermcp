@@ -20,8 +20,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 安全配置：明确禁用信任代理，避免 rate limiter 警告
-app.set('trust proxy', false);
+// 配置信任代理以支持Render平台的反向代理
+app.set('trust proxy', ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
 
 // Security middleware
 app.use(helmet({

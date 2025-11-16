@@ -14,7 +14,7 @@ passport.use(new BearerStrategy({
   clientID: process.env.ONEDRIVE_CLIENT_ID!,
   validateIssuer: false,
   passReqToCallback: false
-}, async (token, done) => {
+}, async (token: any, done: any) => {
   try {
     // 验证 token 并获取用户信息
     const user = {
@@ -68,15 +68,15 @@ router.post('/verify', authLimiter, asyncHandler(async (req, res, next) => {
     }
     
     // 生成 JWT token
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        displayName: user.displayName,
-        email: user.email
-      },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
+    const jwtPayload = {
+      userId: user.id,
+      displayName: user.displayName,
+      email: user.email
+    };
+    const jwtSecret = process.env.JWT_SECRET || 'default-secret';
+    const jwtOptions: any = { expiresIn: process.env.JWT_EXPIRES_IN || '7d' };
+    
+    const token = jwt.sign(jwtPayload, jwtSecret, jwtOptions);
     
     res.json({
       success: true,

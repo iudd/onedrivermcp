@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OneDriveService = void 0;
 const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
-const logger_1 = require("../utils/logger");
+const logger_js_1 = require("../utils/logger.js");
 class OneDriveService {
+    client;
     constructor(accessToken) {
         this.client = microsoft_graph_client_1.Client.init({
             authProvider: (done) => {
@@ -39,7 +40,7 @@ class OneDriveService {
             return response.value || [];
         }
         catch (error) {
-            logger_1.logger.error('Error listing files:', error);
+            logger_js_1.logger.error('Error listing files:', error);
             throw new Error(`Failed to list files: ${error.message}`);
         }
     }
@@ -61,7 +62,7 @@ class OneDriveService {
             return content.toString('utf-8');
         }
         catch (error) {
-            logger_1.logger.error('Error reading file:', error);
+            logger_js_1.logger.error('Error reading file:', error);
             throw new Error(`Failed to read file: ${error.message}`);
         }
     }
@@ -87,7 +88,7 @@ class OneDriveService {
             return result;
         }
         catch (error) {
-            logger_1.logger.error('Error writing file:', error);
+            logger_js_1.logger.error('Error writing file:', error);
             throw new Error(`Failed to write file: ${error.message}`);
         }
     }
@@ -112,7 +113,7 @@ class OneDriveService {
             return files;
         }
         catch (error) {
-            logger_1.logger.error('Error searching files:', error);
+            logger_js_1.logger.error('Error searching files:', error);
             throw new Error(`Failed to search files: ${error.message}`);
         }
     }
@@ -130,7 +131,7 @@ class OneDriveService {
             return result;
         }
         catch (error) {
-            logger_1.logger.error('Error creating folder:', error);
+            logger_js_1.logger.error('Error creating folder:', error);
             throw new Error(`Failed to create folder: ${error.message}`);
         }
     }
@@ -142,7 +143,7 @@ class OneDriveService {
             await this.client.api(`/me/drive/items/${fileId}`).delete();
         }
         catch (error) {
-            logger_1.logger.error('Error deleting file:', error);
+            logger_js_1.logger.error('Error deleting file:', error);
             throw new Error(`Failed to delete file: ${error.message}`);
         }
     }
@@ -157,7 +158,7 @@ class OneDriveService {
             return result;
         }
         catch (error) {
-            logger_1.logger.error('Error getting file info:', error);
+            logger_js_1.logger.error('Error getting file info:', error);
             throw new Error(`Failed to get file info: ${error.message}`);
         }
     }
@@ -179,20 +180,26 @@ class OneDriveService {
                 const chunk = content.slice(i, i + chunkSize);
                 const rangeStart = i;
                 const rangeEnd = Math.min(i + chunkSize - 1, totalSize - 1);
-                await this.client.api(uploadUrl)
-                    .put(chunk, {
+                const requestOptions = {
                     headers: {
                         'Content-Range': `bytes ${rangeStart}-${rangeEnd}/${totalSize}`,
                         'Content-Length': chunk.length.toString()
                     }
-                });
+                };
+                await this.client.api(uploadUrl)
+                    .headers({
+                    'Content-Range': `bytes ${rangeStart}-${rangeEnd}/${totalSize}`,
+                    'Content-Length': chunk.length.toString()
+                })
+                    .put(chunk);
             }
             return await this.getFileInfo(uploadSession.id);
         }
         catch (error) {
-            logger_1.logger.error('Error uploading file chunked:', error);
+            logger_js_1.logger.error('Error uploading file chunked:', error);
             throw new Error(`Failed to upload file: ${error.message}`);
         }
     }
 }
 exports.OneDriveService = OneDriveService;
+//# sourceMappingURL=onedriveService.js.map

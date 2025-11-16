@@ -206,13 +206,19 @@ export class OneDriveService {
         const rangeStart = i;
         const rangeEnd = Math.min(i + chunkSize - 1, totalSize - 1);
         
+        const requestOptions = {
+          headers: {
+            'Content-Range': `bytes ${rangeStart}-${rangeEnd}/${totalSize}`,
+            'Content-Length': chunk.length.toString()
+          }
+        };
+        
         await this.client.api(uploadUrl)
-          .put(chunk, {
-            headers: {
-              'Content-Range': `bytes ${rangeStart}-${rangeEnd}/${totalSize}`,
-              'Content-Length': chunk.length.toString()
-            }
-          });
+          .headers({
+            'Content-Range': `bytes ${rangeStart}-${rangeEnd}/${totalSize}`,
+            'Content-Length': chunk.length.toString()
+          })
+          .put(chunk);
       }
 
       return await this.getFileInfo(uploadSession.id);

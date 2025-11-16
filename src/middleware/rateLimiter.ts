@@ -9,7 +9,8 @@ const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false }, // 明确禁用信任代理验证
+  keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
+  validate: { trustProxy: true }, // 启用信任代理验证
 });
 
 // 认证相关 API 限流（更严格）
@@ -21,19 +22,21 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false }, // 明确禁用信任代理验证
+  keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
+  validate: { trustProxy: true }, // 启用信任代理验证
 });
 
 // MCP SSE 连接限流
 const mcpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1小时
-  max: process.env.MCP_MAX_CONNECTIONS || 10, // 每个IP最多连接数
+  max: parseInt(process.env.MCP_MAX_CONNECTIONS || '10'), // 每个IP最多连接数
   message: {
     error: 'Too many MCP connections from this IP, please try again later.'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false }, // 明确禁用信任代理验证
+  keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
+  validate: { trustProxy: true }, // 启用信任代理验证
 });
 
 // 文件上传限流
@@ -45,7 +48,8 @@ const uploadLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false }, // 明确禁用信任代理验证
+  keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
+  validate: { trustProxy: true }, // 启用信任代理验证
 });
 
 export { apiLimiter, authLimiter, mcpLimiter, uploadLimiter };
