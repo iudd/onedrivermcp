@@ -20,6 +20,9 @@ const api_js_1 = __importDefault(require("./routes/api.js"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
+
+// Trust proxy settings for reverse proxy environments (e.g., Render.com)
+app.set('trust proxy', true);
 // Security middleware
 app.use((0, helmet_1.default)({
     contentSecurityPolicy: {
