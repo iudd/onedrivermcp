@@ -21,7 +21,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Trust proxy settings for reverse proxy environments (e.g., Render.com)
-app.set('trust proxy', true);
+// Render.com uses a single proxy, so we can trust the immediate proxy
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({

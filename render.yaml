@@ -3,8 +3,8 @@ services:
     name: onedrive-mcp-server
     env: node
     plan: free
-    buildCommand: yarn install
-    startCommand: yarn run start
+    buildCommand: npm install
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
