@@ -20,6 +20,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 明确禁用信任代理，避免 rate limiter 安全警告
+app.set('trust proxy', false);
+
+// 明确禁用信任代理，避免 rate limiter 安全警告
+app.set('trust proxy', false);
+
+// 明确禁用信任代理，避免 rate limiter 安全警告
+app.set('trust proxy', false);
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
