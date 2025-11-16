@@ -14,7 +14,7 @@ const router = express_1.default.Router();
 // 配置 Azure AD Bearer 策略（用于验证 access token）
 passport_1.default.use(new passport_azure_ad_1.BearerStrategy({
     identityMetadata: 'https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
-    clientID: process.env.ONEDRIVE_CLIENT_ID,
+    clientID: process.env.ONEDRIVE_CLIENT_ID || 'test-client-id',
     validateIssuer: false,
     passReqToCallback: false
 }, async (token, done) => {
@@ -72,7 +72,7 @@ router.post('/verify', rateLimiter_js_1.authLimiter, (0, errorHandler_js_1.async
             displayName: user.displayName,
             email: user.email
         };
-        const jwtSecret = process.env.JWT_SECRET || 'default-secret';
+        const jwtSecret = process.env.JWT_SECRET || 'test-jwt-secret-for-development-only';
         const jwtOptions = { expiresIn: process.env.JWT_EXPIRES_IN || '7d' };
         const token = jsonwebtoken_1.default.sign(jwtPayload, jwtSecret, jwtOptions);
         res.json({
