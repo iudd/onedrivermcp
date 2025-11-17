@@ -1,7 +1,9 @@
 import { OneDriveFile, OneDriveListFilesParams, OneDriveSearchParams } from '../types/mcp.js';
 export declare class OneDriveService {
     private client;
-    constructor(accessToken: string);
+    private userId;
+    constructor(userId: string);
+    private initializeClient;
     /**
      * 列出文件和文件夹
      */

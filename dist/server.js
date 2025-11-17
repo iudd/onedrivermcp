@@ -1,29 +1,25 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const cors_1 = __importDefault(require("cors"));
-const helmet_1 = __importDefault(require("helmet"));
-const compression_1 = __importDefault(require("compression"));
-const dotenv_1 = __importDefault(require("dotenv"));
-const http_1 = require("http");
-const logger_js_1 = require("./utils/logger.js");
-const errorHandler_js_1 = require("./middleware/errorHandler.js");
-const rateLimiter_js_1 = require("./middleware/rateLimiter.js");
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { logger } from './utils/logger.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 // Routes
-const auth_js_1 = __importDefault(require("./routes/auth.js"));
-const mcp_js_1 = __importDefault(require("./routes/mcp.js"));
-const api_js_1 = __importDefault(require("./routes/api.js"));
+import authRoutes from './routes/auth.js';
+import mcpRoutes from './routes/mcp.js';
+import apiRoutes from './routes/api.js';
+import oauthRoutes from './routes/oauth.js';
 // Initialize environment variables
-dotenv_1.default.config();
-const app = (0, express_1.default)();
+dotenv.config();
+const app = express();
 const PORT = process.env.PORT || 3000;
 // 配置信任代理以支持Render平台的反向代理
 app.set('trust proxy', ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
 // Security middleware
-app.use((0, helmet_1.default)({
+app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
@@ -34,19 +30,19 @@ app.use((0, helmet_1.default)({
     },
 }));
 // Compression
-app.use((0, compression_1.default)());
+app.use(compression());
 // CORS configuration
-app.use((0, cors_1.default)({
+app.use(cors({
     origin: process.env.NODE_ENV === 'production'
         ? ['https://yourdomain.com']
         : ['http://localhost:5173', 'http://localhost:3000'],
     credentials: true,
 }));
 // Body parsing
-app.use(express_1.default.json({ limit: '10mb' }));
-app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Rate limiting
-app.use(rateLimiter_js_1.rateLimiter);
+app.use(rateLimiter);
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({
@@ -57,15 +53,16 @@ app.get('/health', (req, res) => {
     });
 });
 // API routes
-app.use('/api/auth', auth_js_1.default);
-app.use('/api', api_js_1.default);
-app.use('/mcp', mcp_js_1.default);
+app.use('/api/auth', authRoutes);
+app.use('/api/oauth', oauthRoutes);
+app.use('/api', apiRoutes);
+app.use('/mcp', mcpRoutes);
 // 添加根路径的 /tools 重定向到 /mcp/tools（解决404错误）
 app.get('/tools', (req, res) => {
     res.redirect('/mcp/tools');
 });
 // Error handling
-app.use(errorHandler_js_1.errorHandler);
+app.use(errorHandler);
 // 404 handler
 app.use('*', (req, res) => {
     res.status(404).json({
@@ -74,25 +71,25 @@ app.use('*', (req, res) => {
     });
 });
 // Create HTTP server for SSE support
-const server = (0, http_1.createServer)(app);
+const server = createServer(app);
 // Graceful shutdown
 process.on('SIGTERM', () => {
-    logger_js_1.logger.info('SIGTERM received, shutting down gracefully');
+    logger.info('SIGTERM received, shutting down gracefully');
     server.close(() => {
-        logger_js_1.logger.info('Process terminated');
+        logger.info('Process terminated');
     });
 });
 process.on('SIGINT', () => {
-    logger_js_1.logger.info('SIGINT received, shutting down gracefully');
+    logger.info('SIGINT received, shutting down gracefully');
     server.close(() => {
-        logger_js_1.logger.info('Process terminated');
+        logger.info('Process terminated');
     });
 });
 // Start server
 server.listen(PORT, () => {
-    logger_js_1.logger.info(`🚀 OneDrive MCP Server running on port ${PORT}`);
-    logger_js_1.logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-    logger_js_1.logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+    logger.info(`🚀 OneDrive MCP Server running on port ${PORT}`);
+    logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
 });
-exports.default = app;
+export default app;
 //# sourceMappingURL=server.js.map

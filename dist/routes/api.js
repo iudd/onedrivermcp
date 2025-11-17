@@ -1,17 +1,26 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const multer_1 = __importDefault(require("multer"));
-const onedriveService_js_1 = require("../services/onedriveService.js");
-const errorHandler_js_1 = require("../middleware/errorHandler.js");
-const rateLimiter_js_1 = require("../middleware/rateLimiter.js");
-const router = express_1.default.Router();
+import express from 'express';
+import multer from 'multer';
+import { OneDriveService } from '../services/onedriveService.js';
+import { asyncHandler, createError } from '../middleware/errorHandler.js';
+import { uploadLimiter } from '../middleware/rateLimiter.js';
+import { verifyAccessToken } from '../services/authService.js';
+const router = express.Router();
+// 从请求中提取用户ID的辅助函数
+function getUserIdFromRequest(req) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw createError('Access token required', 401);
+    }
+    const token = authHeader.substring(7);
+    const decoded = verifyAccessToken(token);
+    if (!decoded || !decoded.userId) {
+        throw createError('Invalid token', 401);
+    }
+    return decoded.userId;
+}
 // 配置文件上传
-const upload = (0, multer_1.default)({
-    storage: multer_1.default.memoryStorage(),
+const upload = multer({
+    storage: multer.memoryStorage(),
     limits: {
         fileSize: 100 * 1024 * 1024, // 100MB
         files: 1
@@ -24,14 +33,10 @@ const upload = (0, multer_1.default)({
 /**
  * 获取文件列表
  */
-router.get('/files', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
-    const accessToken = authHeader.substring(7);
+router.get('/files', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { path = '/', recursive = false, limit = 100, skip = 0 } = req.query;
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     const files = await oneDriveService.listFiles({
         path: path,
         recursive: recursive === 'true',
@@ -51,14 +56,10 @@ router.get('/files', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
 /**
  * 获取文件详情
  */
-router.get('/files/:id', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
-    const accessToken = authHeader.substring(7);
+router.get('/files/:id', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { id } = req.params;
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     const fileInfo = await oneDriveService.getFileInfo(id);
     res.json({
         success: true,
@@ -68,15 +69,11 @@ router.get('/files/:id', (0, errorHandler_js_1.asyncHandler)(async (req, res) =>
 /**
  * 读取文件内容
  */
-router.get('/files/:id/content', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
-    const accessToken = authHeader.substring(7);
+router.get('/files/:id/content', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { id } = req.params;
     const { encoding = 'utf-8', maxSize = 1024 * 1024 } = req.query;
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     const content = await oneDriveService.readFile(id, encoding, parseInt(maxSize));
     res.json({
         success: true,
@@ -90,18 +87,14 @@ router.get('/files/:id/content', (0, errorHandler_js_1.asyncHandler)(async (req,
 /**
  * 上传文件
  */
-router.post('/files', rateLimiter_js_1.uploadLimiter, upload.single('file'), (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
+router.post('/files', uploadLimiter, upload.single('file'), asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     if (!req.file) {
-        throw (0, errorHandler_js_1.createError)('File is required', 400);
+        throw createError('File is required', 400);
     }
-    const accessToken = authHeader.substring(7);
     const { path = '/', overwrite = false } = req.body;
     const filePath = `${path === '/' ? '' : path}/${req.file.originalname}`;
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     let result;
     if (req.file.size > 5 * 1024 * 1024) {
         // 大文件使用分块上传
@@ -120,17 +113,13 @@ router.post('/files', rateLimiter_js_1.uploadLimiter, upload.single('file'), (0,
 /**
  * 创建文件
  */
-router.post('/files/create', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
+router.post('/files/create', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { path, content, overwrite = false } = req.body;
     if (!path || !content) {
-        throw (0, errorHandler_js_1.createError)('Path and content are required', 400);
+        throw createError('Path and content are required', 400);
     }
-    const accessToken = authHeader.substring(7);
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     const result = await oneDriveService.writeFile(path, content, overwrite);
     res.json({
         success: true,
@@ -141,17 +130,13 @@ router.post('/files/create', (0, errorHandler_js_1.asyncHandler)(async (req, res
 /**
  * 创建文件夹
  */
-router.post('/folders', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
+router.post('/folders', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { path, name } = req.body;
     if (!path || !name) {
-        throw (0, errorHandler_js_1.createError)('Path and name are required', 400);
+        throw createError('Path and name are required', 400);
     }
-    const accessToken = authHeader.substring(7);
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     const result = await oneDriveService.createFolder(path, name);
     res.json({
         success: true,
@@ -162,17 +147,13 @@ router.post('/folders', (0, errorHandler_js_1.asyncHandler)(async (req, res) => 
 /**
  * 搜索文件
  */
-router.get('/search', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
+router.get('/search', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { q: query, path, fileType = 'all', maxResults = 50 } = req.query;
     if (!query) {
-        throw (0, errorHandler_js_1.createError)('Search query is required', 400);
+        throw createError('Search query is required', 400);
     }
-    const accessToken = authHeader.substring(7);
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     const files = await oneDriveService.searchFiles({
         query: query,
         path: path,
@@ -191,14 +172,10 @@ router.get('/search', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
 /**
  * 删除文件
  */
-router.delete('/files/:id', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
-    const accessToken = authHeader.substring(7);
+router.delete('/files/:id', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { id } = req.params;
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     await oneDriveService.deleteFile(id);
     res.json({
         success: true,
@@ -208,17 +185,13 @@ router.delete('/files/:id', (0, errorHandler_js_1.asyncHandler)(async (req, res)
 /**
  * 批量操作
  */
-router.post('/batch', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw (0, errorHandler_js_1.createError)('Access token required', 401);
-    }
+router.post('/batch', asyncHandler(async (req, res) => {
+    const userId = getUserIdFromRequest(req);
     const { operations } = req.body;
     if (!Array.isArray(operations)) {
-        throw (0, errorHandler_js_1.createError)('Operations array is required', 400);
+        throw createError('Operations array is required', 400);
     }
-    const accessToken = authHeader.substring(7);
-    const oneDriveService = new onedriveService_js_1.OneDriveService(accessToken);
+    const oneDriveService = new OneDriveService(userId);
     const results = [];
     for (const operation of operations) {
         try {
@@ -254,5 +227,5 @@ router.post('/batch', (0, errorHandler_js_1.asyncHandler)(async (req, res) => {
         }
     });
 }));
-exports.default = router;
+export default router;
 //# sourceMappingURL=api.js.map

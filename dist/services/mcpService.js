@@ -1,11 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCPService = void 0;
-const events_1 = require("events");
-const uuid_1 = require("uuid");
-const onedriveService_js_1 = require("./onedriveService.js");
-const logger_js_1 = require("../utils/logger.js");
-class MCPService extends events_1.EventEmitter {
+import { EventEmitter } from 'events';
+import { v4 as uuidv4 } from 'uuid';
+import { OneDriveService } from './onedriveService.js';
+import { logger } from '../utils/logger.js';
+export class MCPService extends EventEmitter {
     connections = new Map();
     tools = new Map();
     constructor() {
@@ -149,16 +146,16 @@ class MCPService extends events_1.EventEmitter {
         this.connections.set(connectionId, {
             response,
             lastActivity: Date.now(),
-            accessToken: null
+            userId: null
         });
-        logger_js_1.logger.info(`MCP connection established: ${connectionId}`);
+        logger.info(`MCP connection established: ${connectionId}`);
     }
     /**
      * 移除 SSE 连接
      */
     removeConnection(connectionId) {
         this.connections.delete(connectionId);
-        logger_js_1.logger.info(`MCP connection closed: ${connectionId}`);
+        logger.info(`MCP connection closed: ${connectionId}`);
     }
     /**
      * 发送事件到客户端
@@ -166,7 +163,7 @@ class MCPService extends events_1.EventEmitter {
     sendEvent(connectionId, event) {
         const connection = this.connections.get(connectionId);
         if (!connection) {
-            logger_js_1.logger.warn(`Connection not found: ${connectionId}`);
+            logger.warn(`Connection not found: ${connectionId}`);
             return;
         }
         try {
@@ -174,7 +171,7 @@ class MCPService extends events_1.EventEmitter {
             connection.response.write(data);
         }
         catch (error) {
-            logger_js_1.logger.error(`Error sending event to ${connectionId}:`, error);
+            logger.error(`Error sending event to ${connectionId}:`, error);
             this.removeConnection(connectionId);
         }
     }
@@ -220,8 +217,14 @@ class MCPService extends events_1.EventEmitter {
         if (!accessToken) {
             throw new Error('Access token required for initialization');
         }
+        // 验证JWT令牌并提取用户ID
+        const { verifyAccessToken } = require('./authService');
+        const decoded = verifyAccessToken(accessToken);
+        if (!decoded || !decoded.userId) {
+            throw new Error('Invalid or expired access token');
+        }
         const connection = this.connections.get(connectionId);
-        connection.accessToken = accessToken;
+        connection.userId = decoded.userId;
         // 发送初始化响应
         this.sendEvent(connectionId, {
             type: 'initialized',
@@ -238,7 +241,7 @@ class MCPService extends events_1.EventEmitter {
                 }
             }
         });
-        logger_js_1.logger.info(`MCP connection initialized: ${connectionId}`);
+        logger.info(`MCP connection initialized: ${connectionId}`);
     }
     /**
      * 处理工具调用
@@ -246,7 +249,7 @@ class MCPService extends events_1.EventEmitter {
     async handleToolCall(connectionId, event) {
         const connection = this.connections.get(connectionId);
         const { tool, arguments: args } = event.data;
-        if (!connection.accessToken) {
+        if (!connection.userId) {
             throw new Error('Connection not authenticated');
         }
         const toolDefinition = this.tools.get(tool);
@@ -260,7 +263,7 @@ class MCPService extends events_1.EventEmitter {
             data: { progress: 0, message: '开始处理...' }
         });
         try {
-            const oneDriveService = new onedriveService_js_1.OneDriveService(connection.accessToken);
+            const oneDriveService = new OneDriveService(connection.userId);
             const result = await this.executeTool(oneDriveService, tool, args, event.callId, connectionId);
             this.sendEvent(connectionId, {
                 type: 'tool_result',
@@ -345,7 +348,7 @@ class MCPService extends events_1.EventEmitter {
     async executeWriteFile(oneDriveService, args) {
         const result = await oneDriveService.writeFile(args.path, args.content, args.overwrite);
         return {
-            callId: (0, uuid_1.v4)(),
+            callId: uuidv4(),
             content: [{
                     type: 'text',
                     text: `文件已成功${args.overwrite ? '更新' : '创建'}: ${result.name}`
@@ -362,7 +365,7 @@ class MCPService extends events_1.EventEmitter {
             text: `${file.folder ? '📁' : '📄'} ${file.name} (${file.lastModifiedDateTime})`
         }));
         return {
-            callId: (0, uuid_1.v4)(),
+            callId: uuidv4(),
             content
         };
     }
@@ -372,7 +375,7 @@ class MCPService extends events_1.EventEmitter {
     async executeCreateFolder(oneDriveService, args) {
         const result = await oneDriveService.createFolder(args.path, args.name);
         return {
-            callId: (0, uuid_1.v4)(),
+            callId: uuidv4(),
             content: [{
                     type: 'text',
                     text: `文件夹已创建: ${result.name}`
@@ -385,7 +388,7 @@ class MCPService extends events_1.EventEmitter {
     async executeDeleteFile(oneDriveService, args) {
         await oneDriveService.deleteFile(args.fileId);
         return {
-            callId: (0, uuid_1.v4)(),
+            callId: uuidv4(),
             content: [{
                     type: 'text',
                     text: '文件已成功删除'
@@ -443,5 +446,4 @@ class MCPService extends events_1.EventEmitter {
         }
     }
 }
-exports.MCPService = MCPService;
 //# sourceMappingURL=mcpService.js.map

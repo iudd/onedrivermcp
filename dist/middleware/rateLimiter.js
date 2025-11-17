@@ -1,12 +1,6 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.rateLimiter = exports.uploadLimiter = exports.mcpLimiter = exports.authLimiter = exports.apiLimiter = void 0;
-const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+import rateLimit from 'express-rate-limit';
 // 通用 API 限流
-const apiLimiter = (0, express_rate_limit_1.default)({
+const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15分钟
     max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 生产环境限制更严格
     message: {
@@ -17,9 +11,8 @@ const apiLimiter = (0, express_rate_limit_1.default)({
     keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
     validate: { trustProxy: true }, // 启用信任代理验证
 });
-exports.apiLimiter = apiLimiter;
 // 认证相关 API 限流（更严格）
-const authLimiter = (0, express_rate_limit_1.default)({
+const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15分钟
     max: 5, // 每个IP最多5次认证尝试
     message: {
@@ -30,9 +23,8 @@ const authLimiter = (0, express_rate_limit_1.default)({
     keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
     validate: { trustProxy: true }, // 启用信任代理验证
 });
-exports.authLimiter = authLimiter;
 // MCP SSE 连接限流
-const mcpLimiter = (0, express_rate_limit_1.default)({
+const mcpLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1小时
     max: parseInt(process.env.MCP_MAX_CONNECTIONS || '10'), // 每个IP最多连接数
     message: {
@@ -43,9 +35,8 @@ const mcpLimiter = (0, express_rate_limit_1.default)({
     keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
     validate: { trustProxy: true }, // 启用信任代理验证
 });
-exports.mcpLimiter = mcpLimiter;
 // 文件上传限流
-const uploadLimiter = (0, express_rate_limit_1.default)({
+const uploadLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1小时
     max: 10, // 每个IP最多10次上传
     message: {
@@ -56,7 +47,7 @@ const uploadLimiter = (0, express_rate_limit_1.default)({
     keyGenerator: (req) => req.ip || 'unknown', // 使用真实IP地址作为键，如果不可用则使用默认值
     validate: { trustProxy: true }, // 启用信任代理验证
 });
-exports.uploadLimiter = uploadLimiter;
+export { apiLimiter, authLimiter, mcpLimiter, uploadLimiter };
 // 默认使用通用限流
-exports.rateLimiter = apiLimiter;
+export const rateLimiter = apiLimiter;
 //# sourceMappingURL=rateLimiter.js.map

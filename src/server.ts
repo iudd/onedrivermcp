@@ -13,6 +13,7 @@ import { rateLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/auth.js';
 import mcpRoutes from './routes/mcp.js';
 import apiRoutes from './routes/api.js';
+import oauthRoutes from './routes/oauth.js';
 
 // Initialize environment variables
 dotenv.config();
@@ -65,6 +66,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/oauth', oauthRoutes);
 app.use('/api', apiRoutes);
 app.use('/mcp', mcpRoutes);
 

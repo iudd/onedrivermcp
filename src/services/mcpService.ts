@@ -163,7 +163,7 @@ export class MCPService extends EventEmitter {
     this.connections.set(connectionId, {
       response,
       lastActivity: Date.now(),
-      accessToken: null
+      userId: null
     });
     
     logger.info(`MCP connection established: ${connectionId}`);
@@ -241,8 +241,16 @@ export class MCPService extends EventEmitter {
       throw new Error('Access token required for initialization');
     }
 
+    // 验证JWT令牌并提取用户ID
+    const { verifyAccessToken } = require('./authService');
+    const decoded = verifyAccessToken(accessToken);
+    
+    if (!decoded || !decoded.userId) {
+      throw new Error('Invalid or expired access token');
+    }
+
     const connection = this.connections.get(connectionId);
-    connection.accessToken = accessToken;
+    connection.userId = decoded.userId;
 
     // 发送初始化响应
     this.sendEvent(connectionId, {
@@ -271,7 +279,7 @@ export class MCPService extends EventEmitter {
     const connection = this.connections.get(connectionId);
     const { tool, arguments: args } = event.data;
 
-    if (!connection.accessToken) {
+    if (!connection.userId) {
       throw new Error('Connection not authenticated');
     }
 
@@ -288,7 +296,7 @@ export class MCPService extends EventEmitter {
     });
 
     try {
-      const oneDriveService = new OneDriveService(connection.accessToken);
+      const oneDriveService = new OneDriveService(connection.userId);
       const result = await this.executeTool(oneDriveService, tool, args, event.callId, connectionId);
       
       this.sendEvent(connectionId, {

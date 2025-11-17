@@ -1,24 +1,14 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateCallId = generateCallId;
-exports.formatFileSize = formatFileSize;
-exports.validateFilePath = validateFilePath;
-exports.delay = delay;
-exports.retry = retry;
-exports.generateRandomString = generateRandomString;
-exports.isValidUrl = isValidUrl;
-exports.deepClone = deepClone;
-const uuid_1 = require("uuid");
+import { v4 as uuidv4 } from 'uuid';
 /**
  * 生成唯一的调用ID
  */
-function generateCallId() {
-    return (0, uuid_1.v4)();
+export function generateCallId() {
+    return uuidv4();
 }
 /**
  * 格式化文件大小
  */
-function formatFileSize(bytes) {
+export function formatFileSize(bytes) {
     if (bytes === 0)
         return '0 B';
     const k = 1024;
@@ -29,7 +19,7 @@ function formatFileSize(bytes) {
 /**
  * 验证文件路径
  */
-function validateFilePath(path) {
+export function validateFilePath(path) {
     if (!path || typeof path !== 'string')
         return false;
     // 检查路径格式
@@ -39,13 +29,13 @@ function validateFilePath(path) {
 /**
  * 延迟函数
  */
-function delay(ms) {
+export function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 /**
  * 重试函数
  */
-async function retry(fn, maxRetries = 3, delayMs = 1000) {
+export async function retry(fn, maxRetries = 3, delayMs = 1000) {
     let lastError;
     for (let i = 0; i < maxRetries; i++) {
         try {
@@ -63,7 +53,7 @@ async function retry(fn, maxRetries = 3, delayMs = 1000) {
 /**
  * 生成随机字符串
  */
-function generateRandomString(length = 16) {
+export function generateRandomString(length = 16) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
@@ -74,7 +64,7 @@ function generateRandomString(length = 16) {
 /**
  * 检查是否为有效URL
  */
-function isValidUrl(string) {
+export function isValidUrl(string) {
     try {
         new URL(string);
         return true;
@@ -86,7 +76,7 @@ function isValidUrl(string) {
 /**
  * 深度克隆对象
  */
-function deepClone(obj) {
+export function deepClone(obj) {
     if (obj === null || typeof obj !== 'object') {
         return obj;
     }

@@ -1,16 +1,27 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { OneDriveFile, OneDriveListFilesParams, OneDriveSearchParams } from '../types/mcp.js';
 import { logger } from '../utils/logger.js';
+import { getTokenService, MockTokenService } from './tokenService';
 
 export class OneDriveService {
-  private client: Client;
+  private client: Client | null = null;
+  private userId: string;
 
-  constructor(accessToken: string) {
-    this.client = Client.init({
-      authProvider: (done) => {
-        done(null, accessToken);
-      },
-    });
+  constructor(userId: string) {
+    this.userId = userId;
+  }
+
+  // 初始化Graph客户端
+  private async initializeClient(): Promise<Client> {
+    if (this.client) {
+      return this.client;
+    }
+
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const tokenService = isDevelopment ? new MockTokenService() : getTokenService();
+
+    this.client = await tokenService.createGraphClient(this.userId);
+    return this.client;
   }
 
   /**
@@ -18,12 +29,13 @@ export class OneDriveService {
    */
   async listFiles(params: OneDriveListFilesParams = {}): Promise<OneDriveFile[]> {
     try {
+      await this.initializeClient();
       const { path = '/', recursive = false, limit = 100, skip = 0 } = params;
       
       let endpoint = `/me/drive/root${path === '/' ? '' : `:${path}:`}/children`;
       endpoint += `?$top=${limit}&$skip=${skip}&$select=id,name,size,lastModifiedDateTime,webUrl,file,folder`;
       
-      const response = await this.client.api(endpoint).get();
+      const response = await this.client!.api(endpoint).get();
       
       if (recursive && response.value) {
         const files: OneDriveFile[] = [];
@@ -57,15 +69,16 @@ export class OneDriveService {
    */
   async readFile(fileId: string, encoding: 'utf-8' | 'base64' = 'utf-8', maxSize = 1024 * 1024): Promise<string> {
     try {
+      await this.initializeClient();
       // 先获取文件信息
-      const fileInfo = await this.client.api(`/me/drive/items/${fileId}`).get();
+      const fileInfo = await this.client!.api(`/me/drive/items/${fileId}`).get();
       
       if (fileInfo.size > maxSize) {
         throw new Error(`File too large: ${fileInfo.size} bytes (max: ${maxSize} bytes)`);
       }
       
       // 下载文件内容
-      const content = await this.client.api(`/me/drive/items/${fileId}/content`).get();
+      const content = await this.client!.api(`/me/drive/items/${fileId}/content`).get();
       
       if (encoding === 'base64') {
         return Buffer.from(content).toString('base64');
@@ -83,20 +96,21 @@ export class OneDriveService {
    */
   async writeFile(path: string, content: string, overwrite = false): Promise<OneDriveFile> {
     try {
+      await this.initializeClient();
       const endpoint = `/me/drive/root:${path}:/content`;
       
       if (!overwrite) {
         // 检查文件是否存在
         try {
-          await this.client.api(endpoint).get();
+          await this.client!.api(endpoint).get();
           throw new Error(`File already exists: ${path}`);
-        } catch (error) {
+        } catch (error: any) {
           // 文件不存在，继续创建
           if (error.statusCode !== 404) throw error;
         }
       }
       
-      const result = await this.client.api(endpoint).put(content);
+      const result = await this.client!.api(endpoint).put(content);
       return result;
     } catch (error) {
       logger.error('Error writing file:', error);
@@ -109,6 +123,7 @@ export class OneDriveService {
    */
   async searchFiles(params: OneDriveSearchParams): Promise<OneDriveFile[]> {
     try {
+      await this.initializeClient();
       const { query, path, fileType = 'all', maxResults = 50 } = params;
       
       let searchPath = '/me/drive/root';
@@ -119,7 +134,7 @@ export class OneDriveService {
       let endpoint = `${searchPath}/search(q='${encodeURIComponent(query)}')`;
       endpoint += `?$top=${maxResults}&$select=id,name,size,lastModifiedDateTime,webUrl,file,folder`;
       
-      const response = await this.client.api(endpoint).get();
+      const response = await this.client!.api(endpoint).get();
       
       let files = response.value || [];
       
@@ -142,9 +157,10 @@ export class OneDriveService {
    */
   async createFolder(path: string, name: string): Promise<OneDriveFile> {
     try {
+      await this.initializeClient();
       const endpoint = `/me/drive/root${path === '/' ? '' : `:${path}:`}/children`;
       
-      const result = await this.client.api(endpoint).post({
+      const result = await this.client!.api(endpoint).post({
         name,
         folder: {},
         '@microsoft.graph.conflictBehavior': 'rename'
@@ -162,7 +178,8 @@ export class OneDriveService {
    */
   async deleteFile(fileId: string): Promise<void> {
     try {
-      await this.client.api(`/me/drive/items/${fileId}`).delete();
+      await this.initializeClient();
+      await this.client!.api(`/me/drive/items/${fileId}`).delete();
     } catch (error) {
       logger.error('Error deleting file:', error);
       throw new Error(`Failed to delete file: ${error.message}`);
@@ -174,7 +191,8 @@ export class OneDriveService {
    */
   async getFileInfo(fileId: string): Promise<OneDriveFile> {
     try {
-      const result = await this.client.api(`/me/drive/items/${fileId}`)
+      await this.initializeClient();
+      const result = await this.client!.api(`/me/drive/items/${fileId}`)
         .select('id,name,size,lastModifiedDateTime,webUrl,file,folder')
         .get();
       
@@ -190,8 +208,9 @@ export class OneDriveService {
    */
   async uploadFileChunked(path: string, content: Buffer, chunkSize = 5 * 1024 * 1024): Promise<OneDriveFile> {
     try {
+      await this.initializeClient();
       const totalSize = content.length;
-      const uploadSession = await this.client.api(`/me/drive/root:${path}:/createUploadSession`)
+      const uploadSession = await this.client!.api(`/me/drive/root:${path}:/createUploadSession`)
         .post({
           item: {
             '@microsoft.graph.conflictBehavior': 'rename',
@@ -213,7 +232,7 @@ export class OneDriveService {
           }
         };
         
-        await this.client.api(uploadUrl)
+        await this.client!.api(uploadUrl)
           .headers({
             'Content-Range': `bytes ${rangeStart}-${rangeEnd}/${totalSize}`,
             'Content-Length': chunk.length.toString()

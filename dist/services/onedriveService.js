@@ -1,22 +1,27 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.OneDriveService = void 0;
-const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
-const logger_js_1 = require("../utils/logger.js");
-class OneDriveService {
-    client;
-    constructor(accessToken) {
-        this.client = microsoft_graph_client_1.Client.init({
-            authProvider: (done) => {
-                done(null, accessToken);
-            },
-        });
+import { logger } from '../utils/logger.js';
+import { getTokenService, MockTokenService } from './tokenService.js';
+export class OneDriveService {
+    client = null;
+    userId;
+    constructor(userId) {
+        this.userId = userId;
+    }
+    // 初始化Graph客户端
+    async initializeClient() {
+        if (this.client) {
+            return this.client;
+        }
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const tokenService = isDevelopment ? new MockTokenService() : getTokenService();
+        this.client = await tokenService.createGraphClient(this.userId);
+        return this.client;
     }
     /**
      * 列出文件和文件夹
      */
     async listFiles(params = {}) {
         try {
+            await this.initializeClient();
             const { path = '/', recursive = false, limit = 100, skip = 0 } = params;
             let endpoint = `/me/drive/root${path === '/' ? '' : `:${path}:`}/children`;
             endpoint += `?$top=${limit}&$skip=${skip}&$select=id,name,size,lastModifiedDateTime,webUrl,file,folder`;
@@ -40,7 +45,7 @@ class OneDriveService {
             return response.value || [];
         }
         catch (error) {
-            logger_js_1.logger.error('Error listing files:', error);
+            logger.error('Error listing files:', error);
             throw new Error(`Failed to list files: ${error.message}`);
         }
     }
@@ -49,6 +54,7 @@ class OneDriveService {
      */
     async readFile(fileId, encoding = 'utf-8', maxSize = 1024 * 1024) {
         try {
+            await this.initializeClient();
             // 先获取文件信息
             const fileInfo = await this.client.api(`/me/drive/items/${fileId}`).get();
             if (fileInfo.size > maxSize) {
@@ -62,7 +68,7 @@ class OneDriveService {
             return content.toString('utf-8');
         }
         catch (error) {
-            logger_js_1.logger.error('Error reading file:', error);
+            logger.error('Error reading file:', error);
             throw new Error(`Failed to read file: ${error.message}`);
         }
     }
@@ -71,6 +77,7 @@ class OneDriveService {
      */
     async writeFile(path, content, overwrite = false) {
         try {
+            await this.initializeClient();
             const endpoint = `/me/drive/root:${path}:/content`;
             if (!overwrite) {
                 // 检查文件是否存在
@@ -88,7 +95,7 @@ class OneDriveService {
             return result;
         }
         catch (error) {
-            logger_js_1.logger.error('Error writing file:', error);
+            logger.error('Error writing file:', error);
             throw new Error(`Failed to write file: ${error.message}`);
         }
     }
@@ -97,6 +104,7 @@ class OneDriveService {
      */
     async searchFiles(params) {
         try {
+            await this.initializeClient();
             const { query, path, fileType = 'all', maxResults = 50 } = params;
             let searchPath = '/me/drive/root';
             if (path && path !== '/') {
@@ -113,7 +121,7 @@ class OneDriveService {
             return files;
         }
         catch (error) {
-            logger_js_1.logger.error('Error searching files:', error);
+            logger.error('Error searching files:', error);
             throw new Error(`Failed to search files: ${error.message}`);
         }
     }
@@ -122,6 +130,7 @@ class OneDriveService {
      */
     async createFolder(path, name) {
         try {
+            await this.initializeClient();
             const endpoint = `/me/drive/root${path === '/' ? '' : `:${path}:`}/children`;
             const result = await this.client.api(endpoint).post({
                 name,
@@ -131,7 +140,7 @@ class OneDriveService {
             return result;
         }
         catch (error) {
-            logger_js_1.logger.error('Error creating folder:', error);
+            logger.error('Error creating folder:', error);
             throw new Error(`Failed to create folder: ${error.message}`);
         }
     }
@@ -140,10 +149,11 @@ class OneDriveService {
      */
     async deleteFile(fileId) {
         try {
+            await this.initializeClient();
             await this.client.api(`/me/drive/items/${fileId}`).delete();
         }
         catch (error) {
-            logger_js_1.logger.error('Error deleting file:', error);
+            logger.error('Error deleting file:', error);
             throw new Error(`Failed to delete file: ${error.message}`);
         }
     }
@@ -152,13 +162,14 @@ class OneDriveService {
      */
     async getFileInfo(fileId) {
         try {
+            await this.initializeClient();
             const result = await this.client.api(`/me/drive/items/${fileId}`)
                 .select('id,name,size,lastModifiedDateTime,webUrl,file,folder')
                 .get();
             return result;
         }
         catch (error) {
-            logger_js_1.logger.error('Error getting file info:', error);
+            logger.error('Error getting file info:', error);
             throw new Error(`Failed to get file info: ${error.message}`);
         }
     }
@@ -167,6 +178,7 @@ class OneDriveService {
      */
     async uploadFileChunked(path, content, chunkSize = 5 * 1024 * 1024) {
         try {
+            await this.initializeClient();
             const totalSize = content.length;
             const uploadSession = await this.client.api(`/me/drive/root:${path}:/createUploadSession`)
                 .post({
@@ -196,10 +208,9 @@ class OneDriveService {
             return await this.getFileInfo(uploadSession.id);
         }
         catch (error) {
-            logger_js_1.logger.error('Error uploading file chunked:', error);
+            logger.error('Error uploading file chunked:', error);
             throw new Error(`Failed to upload file: ${error.message}`);
         }
     }
 }
-exports.OneDriveService = OneDriveService;
 //# sourceMappingURL=onedriveService.js.map

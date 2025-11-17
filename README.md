@@ -48,6 +48,144 @@ npm install
 ### 3. 配置环境变量
 复制 `.env.example` 为 `.env` 并配置：
 
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件：
+
+```env
+# Microsoft Graph OAuth配置 (必须配置)
+MICROSOFT_CLIENT_ID=your-azure-ad-app-client-id
+MICROSOFT_CLIENT_SECRET=your-azure-ad-app-client-secret
+MICROSOFT_REDIRECT_URI=http://localhost:3000/api/oauth/callback
+MICROSOFT_TENANT_ID=common
+
+# JWT配置
+JWT_SECRET=your-strong-jwt-secret-here
+JWT_REFRESH_SECRET=your-strong-refresh-secret-here
+
+# 服务器配置
+PORT=3000
+NODE_ENV=development
+```
+
+#### Microsoft Graph 应用注册
+1. 访问 [Azure Portal](https://portal.azure.com)
+2. 转到 "Azure Active Directory" > "应用注册"
+3. 点击 "新注册"
+4. 输入应用名称，选择支持的账户类型
+5. 在 "重定向 URI" 中添加 `http://localhost:3000/api/oauth/callback`
+6. 注册完成后，记下应用程序(客户端) ID
+7. 转到 "证书和机密"，创建新的客户端机密
+8. 将客户端ID和客户端机密配置到环境变量中
+9. 转到 "API权限"，添加以下权限：
+   - `Files.ReadWrite`
+   - `User.Read`
+   - `offline_access` (用于刷新令牌)
+
+### 4. 构建项目
+```bash
+npm run build
+```
+
+### 5. 启动服务器
+```bash
+npm start
+```
+
+## 🔐 认证系统
+
+本项目实现了双重令牌认证系统，确保安全性和灵活性：
+
+### 令牌架构
+1. **客户端认证**: 使用JWT令牌进行API访问控制
+2. **OneDrive访问**: 使用Microsoft Graph令牌访问OneDrive资源
+3. **自动刷新**: 自动刷新过期的Microsoft Graph令牌
+
+### OAuth 2.0 授权流程
+1. 客户端请求授权URL: `GET /api/oauth/authorize`
+2. 用户在浏览器中完成Microsoft授权
+3. Microsoft重定向到回调URL: `GET /api/oauth/callback?code=...`
+4. 服务器使用授权码交换Microsoft Graph令牌
+5. 服务器生成JWT令牌返回给客户端
+6. 客户端使用JWT令牌访问API
+
+### 认证示例
+```javascript
+// 1. 获取授权URL
+const response = await fetch('/api/oauth/authorize');
+const { authorizationUrl } = await response.json();
+
+// 2. 用户完成授权后，使用返回的访问令牌
+const tokenResponse = await fetch('/api/oauth/callback?code=...');
+const { accessToken } = await tokenResponse.json();
+
+// 3. 使用JWT访问API
+const filesResponse = await fetch('/api/files', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+```
+
+## 🧪 测试
+
+### OAuth流程测试
+运行OAuth流程测试：
+```bash
+node test-oauth.js
+```
+
+### 快速测试
+Windows用户可以直接运行：
+```bash
+start-and-test.bat
+```
+
+### 认证测试
+运行基础认证测试：
+```bash
+node test-auth.js
+```
+
+## 📖 使用指南
+
+### MCP协议使用
+1. 建立SSE连接：`GET /mcp/sse`
+2. 发送初始化事件：
+```json
+{
+  "type": "initialize",
+  "callId": "unique-id",
+  "data": {
+    "accessToken": "your-jwt-token"
+  }
+}
+```
+3. 调用工具：
+```json
+{
+  "type": "tools_call",
+  "callId": "unique-id",
+  "data": {
+    "tool": "list_files",
+    "arguments": {
+      "path": "/",
+      "limit": 10
+    }
+  }
+}
+```
+
+### REST API使用
+所有REST API都需要在请求头中包含JWT令牌：
+```
+Authorization: Bearer your-jwt-token
+```
+
+详细认证文档请参考 [AUTH-README.md](./AUTH-README.md)
+
 ```env
 # OneDrive App Configuration
 ONEDRIVE_CLIENT_ID=your_client_id_here
