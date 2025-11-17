@@ -96,11 +96,13 @@ export class TokenService {
       ? `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/token`
       : 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
 
+    const scopes = ['https://graph.microsoft.com/Files.ReadWrite', 'https://graph.microsoft.com/User.Read'];
     const params = new URLSearchParams({
       client_id: this.clientId,
       client_secret: this.clientSecret,
       refresh_token: refreshToken,
       grant_type: 'refresh_token',
+      scope: scopes.join(' ')
     });
 
     try {
@@ -124,7 +126,12 @@ export class TokenService {
 
       return token;
     } catch (error: any) {
-      throw new Error(`Failed to refresh token: ${error.message}`);
+      // 增强错误日志，提供更多调试信息
+      const errorMessage = error.response 
+        ? `Failed to refresh token: ${error.response.status} ${JSON.stringify(error.response.data)}`
+        : `Failed to refresh token: ${error.message}`;
+      
+      throw new Error(errorMessage);
     }
   }
 

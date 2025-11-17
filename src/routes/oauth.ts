@@ -2,6 +2,7 @@ import express from 'express';
 import { getTokenService, MockTokenService } from '../services/tokenService.js';
 import { v4 as uuidv4 } from 'uuid';
 import { generateAccessToken, generateRefreshToken, verifyAccessToken } from '../services/authService.js';
+import { sessionManager } from '../middleware/session.js';
 
 const router = express.Router();
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -13,18 +14,21 @@ router.get('/authorize', (req, res) => {
     // 根据环境选择TokenService
     const tokenService = isDevelopment ? new MockTokenService() : getTokenService();
     
-    // 生成唯一的state参数用于安全验证
-    const authState = (state as string) || uuidv4();
+    // 使用会话管理器生成新的会话和状态码
+    const session = sessionManager.generateSession();
+    const authState = (state as string) || session.state;
     
-    // 注意：在生产环境中，您应该使用express-session中间件来存储state
-    // 这里我们暂时使用简单的内存存储作为示例
+    // 更新会话中的状态码
+    sessionManager.updateSession(session.id, { state: authState });
+    
     console.log('OAuth state generated:', authState);
     
     res.json({
       success: true,
       data: {
         authorizationUrl: tokenService.getAuthUrl(authState),
-        state: authState
+        state: authState,
+        sessionId: session.id // 返回会话ID，用于回调验证
       }
     });
   } catch (error: any) {
@@ -38,13 +42,23 @@ router.get('/authorize', (req, res) => {
 // OAuth回调处理
 router.get('/callback', async (req, res) => {
   try {
-    const { code, state, error } = req.query;
+    const { code, state, sessionId } = req.query;
     
-    if (error) {
+    if (!sessionId) {
       return res.status(400).json({
         success: false,
-        error: 'OAuth authorization failed',
-        details: error
+        error: 'Session ID is required'
+      });
+    }
+    
+    // 验证会话和状态码
+    const stateVerification = sessionManager.verifyState(sessionId as string, state as string);
+    
+    if (!stateVerification.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'State verification failed',
+        details: stateVerification.error
       });
     }
     
@@ -55,10 +69,13 @@ router.get('/callback', async (req, res) => {
       });
     }
     
-    // 验证state参数（防止CSRF攻击）
-    // 注意：在生产环境中，您应该验证state参数
-    // 这里暂时跳过state验证，作为开发示例
-    console.log('OAuth state verification:', { received: state, expected: 'N/A (session not implemented)' });
+    console.log('OAuth state verification successful:', { 
+      sessionId: sessionId, 
+      state: state 
+    });
+    
+    // 更新会话，添加授权码
+    sessionManager.updateSession(sessionId as string, { authCode: code as string });
     
     // 根据环境选择TokenService
     const tokenService = isDevelopment ? new MockTokenService() : getTokenService();
@@ -72,13 +89,14 @@ router.get('/callback', async (req, res) => {
     // 存储令牌
     tokenService.storeUserToken(userId, token);
     
+    // 更新会话，关联用户ID
+    sessionManager.updateSession(sessionId as string, { userId });
+    
     // 生成JWT令牌用于客户端认证
     const jwtToken = generateAccessToken({ 
       userId,
       microsoftAuthenticated: true 
     });
-    
-    // 清除session中的state（已移除对session的依赖）
     
     res.json({
       success: true,
@@ -116,11 +134,12 @@ router.get('/mock-success', (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
   
-  const { state } = req.query;
+  const { state, sessionId } = req.query;
   
   try {
-    // 直接返回模拟的授权码
-    res.redirect(`/api/oauth/callback?code=mock-auth-code-${Date.now()}&state=${state}`);
+    // 直接返回模拟的授权码，包含会话ID
+    const redirectUrl = `/api/oauth/callback?code=mock-auth-code-${Date.now()}&state=${state}&sessionId=${sessionId}`;
+    res.redirect(redirectUrl);
   } catch (error: any) {
     console.error('Mock OAuth error:', error);
     res.status(500).json({

@@ -33,7 +33,7 @@ export class OneDriveService {
       const { path = '/', recursive = false, limit = 100, skip = 0 } = params;
       
       let endpoint = `/me/drive/root${path === '/' ? '' : `:${path}:`}/children`;
-      endpoint += `?$top=${limit}&$skip=${skip}&$select=id,name,size,lastModifiedDateTime,webUrl,file,folder`;
+      endpoint += `?$top=${limit}&$select=id,name,size,lastModifiedDateTime,webUrl,file,folder`;
       
       const response = await this.client!.api(endpoint).get();
       

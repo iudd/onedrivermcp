@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { logger } from './utils/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { rateLimiter } from './middleware/rateLimiter.js';
+import { sessionMiddleware } from './middleware/session.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -53,6 +54,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting
 app.use(rateLimiter);
+
+// Session management
+app.use(sessionMiddleware);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
