@@ -2,7 +2,7 @@
   "name": "onedrive-mcp-server",
   "version": "1.0.0",
   "description": "OneDrive MCP Server - AI-powered file management for OneDrive",
-  "type": "module",
+  
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
