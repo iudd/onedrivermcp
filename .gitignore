@@ -46,3 +46,15 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Local test files with tokens and sensitive information
+get-token.js
+refresh-token.js
+client-wrapper.js
+test-*.js
+test-*.bat
+test-*.ps1
+check-endpoints.bat
+mcp*.bat
+mcp*.ps1
+Untitled-1.js
