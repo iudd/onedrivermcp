@@ -14,14 +14,14 @@ function getUserIdFromRequest(req: Request): string {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw createError('Access token required', 401);
   }
-  
+
   const token = authHeader.substring(7);
   const decoded = verifyAccessToken(token);
-  
+
   if (!decoded || !decoded.userId) {
     throw createError('Invalid token', 401);
   }
-  
+
   return decoded.userId;
 }
 
@@ -43,16 +43,15 @@ const upload = multer({
  */
 router.get('/files', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserIdFromRequest(req);
-  const { path = '/', recursive = false, limit = 100, skip = 0 } = req.query;
-  
+  const { path = '/', recursive = false, limit = 100 } = req.query;
+
   const oneDriveService = new OneDriveService(userId);
   const files = await oneDriveService.listFiles({
     path: path as string,
     recursive: recursive === 'true',
-    limit: parseInt(limit as string),
-    skip: parseInt(skip as string)
+    limit: parseInt(limit as string)
   });
-  
+
   res.json({
     success: true,
     data: {
@@ -70,10 +69,10 @@ router.get('/files', asyncHandler(async (req: Request, res: Response) => {
 router.get('/files/:id', asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
   const { id } = req.params;
-  
+
   const oneDriveService = new OneDriveService(userId);
   const fileInfo = await oneDriveService.getFileInfo(id);
-  
+
   res.json({
     success: true,
     data: fileInfo
@@ -87,14 +86,14 @@ router.get('/files/:id/content', asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
   const { id } = req.params;
   const { encoding = 'utf-8', maxSize = 1024 * 1024 } = req.query;
-  
+
   const oneDriveService = new OneDriveService(userId);
   const content = await oneDriveService.readFile(
-    id, 
-    encoding as 'utf-8' | 'base64', 
+    id,
+    encoding as 'utf-8' | 'base64',
     parseInt(maxSize as string)
   );
-  
+
   res.json({
     success: true,
     data: {
@@ -110,16 +109,16 @@ router.get('/files/:id/content', asyncHandler(async (req, res) => {
  */
 router.post('/files', uploadLimiter, upload.single('file'), asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
-  
+
   if (!req.file) {
     throw createError('File is required', 400);
   }
-  
+
   const { path = '/', overwrite = false } = req.body;
   const filePath = `${path === '/' ? '' : path}/${req.file.originalname}`;
-  
+
   const oneDriveService = new OneDriveService(userId);
-  
+
   let result;
   if (req.file.size > 5 * 1024 * 1024) {
     // 大文件使用分块上传
@@ -128,7 +127,7 @@ router.post('/files', uploadLimiter, upload.single('file'), asyncHandler(async (
     // 小文件直接上传
     result = await oneDriveService.writeFile(filePath, req.file.buffer.toString('base64'), overwrite === 'true');
   }
-  
+
   res.json({
     success: true,
     data: result,
@@ -141,16 +140,16 @@ router.post('/files', uploadLimiter, upload.single('file'), asyncHandler(async (
  */
 router.post('/files/create', asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
-  
+
   const { path, content, overwrite = false } = req.body;
-  
+
   if (!path || !content) {
     throw createError('Path and content are required', 400);
   }
-  
+
   const oneDriveService = new OneDriveService(userId);
   const result = await oneDriveService.writeFile(path, content, overwrite);
-  
+
   res.json({
     success: true,
     data: result,
@@ -163,16 +162,16 @@ router.post('/files/create', asyncHandler(async (req, res) => {
  */
 router.post('/folders', asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
-  
+
   const { path, name } = req.body;
-  
+
   if (!path || !name) {
     throw createError('Path and name are required', 400);
   }
-  
+
   const oneDriveService = new OneDriveService(userId);
   const result = await oneDriveService.createFolder(path, name);
-  
+
   res.json({
     success: true,
     data: result,
@@ -185,13 +184,13 @@ router.post('/folders', asyncHandler(async (req, res) => {
  */
 router.get('/search', asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
-  
+
   const { q: query, path, fileType = 'all', maxResults = 50 } = req.query;
-  
+
   if (!query) {
     throw createError('Search query is required', 400);
   }
-  
+
   const oneDriveService = new OneDriveService(userId);
   const files = await oneDriveService.searchFiles({
     query: query as string,
@@ -199,7 +198,7 @@ router.get('/search', asyncHandler(async (req, res) => {
     fileType: fileType as 'file' | 'folder' | 'all',
     maxResults: parseInt(maxResults as string)
   });
-  
+
   res.json({
     success: true,
     data: {
@@ -216,10 +215,10 @@ router.get('/search', asyncHandler(async (req, res) => {
 router.delete('/files/:id', asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
   const { id } = req.params;
-  
+
   const oneDriveService = new OneDriveService(userId);
   await oneDriveService.deleteFile(id);
-  
+
   res.json({
     success: true,
     message: 'File deleted successfully'
@@ -231,20 +230,20 @@ router.delete('/files/:id', asyncHandler(async (req, res) => {
  */
 router.post('/batch', asyncHandler(async (req, res) => {
   const userId = getUserIdFromRequest(req);
-  
+
   const { operations } = req.body;
-  
+
   if (!Array.isArray(operations)) {
     throw createError('Operations array is required', 400);
   }
-  
+
   const oneDriveService = new OneDriveService(userId);
   const results: any[] = [];
-  
+
   for (const operation of operations) {
     try {
       let result;
-      
+
       switch (operation.type) {
         case 'delete':
           await oneDriveService.deleteFile(operation.fileId);
@@ -257,7 +256,7 @@ router.post('/batch', asyncHandler(async (req, res) => {
         default:
           result = { success: false, error: `Unknown operation type: ${operation.type}` };
       }
-      
+
       results.push(result);
     } catch (error: any) {
       results.push({
@@ -267,7 +266,7 @@ router.post('/batch', asyncHandler(async (req, res) => {
       });
     }
   }
-  
+
   res.json({
     success: true,
     data: {

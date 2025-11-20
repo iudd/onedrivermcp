@@ -58,6 +58,7 @@ export interface MCPListResourcesRequest {
 
 export interface MCPReadResourceRequest {
   uri: string;
+  mimeType?: string;
 }
 
 export interface MCPReadResourceResponse {
@@ -100,7 +101,6 @@ export interface OneDriveListFilesParams {
   path?: string;
   recursive?: boolean;
   limit?: number;
-  skip?: number;
 }
 
 export interface OneDriveSearchParams {
