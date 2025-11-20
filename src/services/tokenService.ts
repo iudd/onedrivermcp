@@ -1,6 +1,8 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import 'isomorphic-fetch';
 import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Microsoft Graph 令牌接口
 export interface MicrosoftGraphToken {
@@ -21,20 +23,57 @@ export interface UserTokenStore {
 export class TokenService {
   private tokenStore: UserTokenStore = {};
   private readonly TOKEN_REFRESH_BUFFER = 5 * 60 * 1000; // 5分钟缓冲时间
+  private readonly STORAGE_FILE_PATH: string;
 
   constructor(
     private readonly clientId: string,
     private readonly clientSecret: string,
     private readonly redirectUri: string,
     private readonly tenantId?: string
-  ) {}
+  ) {
+    // 设置存储文件路径（在 /tmp 目录下，Render 支持）
+    this.STORAGE_FILE_PATH = path.join(process.env.STORAGE_PATH || '/tmp', 'onedrive-tokens.json');
+
+    // 启动时加载已保存的 token
+    this.loadTokensFromFile();
+  }
+
+  // 从文件加载 token
+  private loadTokensFromFile(): void {
+    try {
+      if (fs.existsSync(this.STORAGE_FILE_PATH)) {
+        const data = fs.readFileSync(this.STORAGE_FILE_PATH, 'utf-8');
+        this.tokenStore = JSON.parse(data);
+        console.log(`Loaded ${Object.keys(this.tokenStore).length} tokens from storage`);
+      }
+    } catch (error) {
+      console.error('Failed to load tokens from file:', error);
+      this.tokenStore = {};
+    }
+  }
+
+  // 保存 token 到文件
+  private saveTokensToFile(): void {
+    try {
+      // 确保目录存在
+      const dir = path.dirname(this.STORAGE_FILE_PATH);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      fs.writeFileSync(this.STORAGE_FILE_PATH, JSON.stringify(this.tokenStore, null, 2), 'utf-8');
+      console.log(`Saved ${Object.keys(this.tokenStore).length} tokens to storage`);
+    } catch (error) {
+      console.error('Failed to save tokens to file:', error);
+    }
+  }
 
   // 获取授权URL
   getAuthUrl(state?: string): string {
-    const baseUrl = this.tenantId 
+    const baseUrl = this.tenantId
       ? `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/authorize`
       : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
-    
+
     const scopes = ['https://graph.microsoft.com/Files.ReadWrite', 'https://graph.microsoft.com/User.Read'];
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -127,10 +166,10 @@ export class TokenService {
       return token;
     } catch (error: any) {
       // 增强错误日志，提供更多调试信息
-      const errorMessage = error.response 
+      const errorMessage = error.response
         ? `Failed to refresh token: ${error.response.status} ${JSON.stringify(error.response.data)}`
         : `Failed to refresh token: ${error.message}`;
-      
+
       throw new Error(errorMessage);
     }
   }
@@ -143,6 +182,8 @@ export class TokenService {
   // 存储用户令牌
   storeUserToken(userId: string, token: MicrosoftGraphToken): void {
     this.tokenStore[userId] = token;
+    // 保存到文件
+    this.saveTokensToFile();
   }
 
   // 获取用户令牌
@@ -153,7 +194,7 @@ export class TokenService {
   // 获取有效的访问令牌（如果需要会自动刷新）
   async getValidAccessToken(userId: string): Promise<string> {
     let token = this.getUserToken(userId);
-    
+
     if (!token) {
       throw new Error(`No token found for user ${userId}`);
     }
@@ -175,7 +216,7 @@ export class TokenService {
   // 创建已认证的Microsoft Graph客户端
   async createGraphClient(userId: string): Promise<Client> {
     const accessToken = await this.getValidAccessToken(userId);
-    
+
     return Client.init({
       authProvider: (done) => {
         done(null, accessToken);
@@ -186,6 +227,8 @@ export class TokenService {
   // 删除用户令牌
   removeUserToken(userId: string): void {
     delete this.tokenStore[userId];
+    // 保存到文件
+    this.saveTokensToFile();
   }
 
   // 获取存储的所有用户ID
