@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneDrive MCP Server - CORS 测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0078d4;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 OneDrive MCP Server - CORS 测试工具</h1>
+        <p class="subtitle">测试部署在 Render 上的服务器的 CORS 配置</p>
+
+        <div class="test-section">
+            <h3>1. 健康检查测试</h3>
+            <p>测试 <code>/health</code> 端点是否可以从浏览器访问</p>
+            <button onclick="testHealth()">测试健康检查</button>
+            <div id="healthResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. OAuth 授权测试</h3>
+            <p>测试 <code>/api/oauth/authorize</code> 端点</p>
+            <button onclick="testOAuth()">测试 OAuth</button>
+            <div id="oauthResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. CORS 预检请求测试</h3>
+            <p>测试带自定义头的请求（会触发 CORS 预检）</p>
+            <button onclick="testCORSPreflight()">测试 CORS 预检</button>
+            <div id="corsResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 完整 API 测试</h3>
+            <p>测试需要认证的 API 端点</p>
+            <button onclick="testAuthAPI()">测试认证 API</button>
+            <div id="apiResult"></div>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'https://onedrivermcp.onrender.com';
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = message;
+        }
+
+        async function testHealth() {
+            const resultId = 'healthResult';
+            showResult(resultId, '正在测试...', 'info');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/health`);
+                const data = await response.json();
+                
+                const message = `✅ 成功！
+状态码: ${response.status}
+响应数据:
+${JSON.stringify(data, null, 2)}
+
+CORS 头信息:
+Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin') || '未设置'}
+Access-Control-Allow-Credentials: ${response.headers.get('Access-Control-Allow-Credentials') || '未设置'}`;
+                
+                showResult(resultId, message, 'success');
+            } catch (error) {
+                const message = `❌ 失败！
+错误: ${error.message}
+
+可能的原因:
+1. CORS 配置阻止了请求
+2. 服务器未响应
+3. 网络问题
+
+详细错误:
+${error.stack}`;
+                
+                showResult(resultId, message, 'error');
+            }
+        }
+
+        async function testOAuth() {
+            const resultId = 'oauthResult';
+            showResult(resultId, '正在测试...', 'info');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/oauth/authorize`);
+                const data = await response.json();
+                
+                const message = `✅ 成功！
+状态码: ${response.status}
+响应数据:
+${JSON.stringify(data, null, 2)}
+
+CORS 头信息:
+Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin') || '未设置'}`;
+                
+                showResult(resultId, message, 'success');
+            } catch (error) {
+                const message = `❌ 失败！
+错误: ${error.message}
+
+详细错误:
+${error.stack}`;
+                
+                showResult(resultId, message, 'error');
+            }
+        }
+
+        async function testCORSPreflight() {
+            const resultId = 'corsResult';
+            showResult(resultId, '正在测试...', 'info');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Custom-Header': 'test'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                const message = `✅ CORS 预检通过！
+状态码: ${response.status}
+
+CORS 相关头:
+Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin') || '未设置'}
+Access-Control-Allow-Methods: ${response.headers.get('Access-Control-Allow-Methods') || '未设置'}
+Access-Control-Allow-Headers: ${response.headers.get('Access-Control-Allow-Headers') || '未设置'}
+Access-Control-Allow-Credentials: ${response.headers.get('Access-Control-Allow-Credentials') || '未设置'}`;
+                
+                showResult(resultId, message, 'success');
+            } catch (error) {
+                const message = `❌ CORS 预检失败！
+错误: ${error.message}
+
+这通常意味着服务器的 CORS 配置不允许:
+1. 当前域名访问
+2. 自定义请求头
+3. 特定的 HTTP 方法
+
+详细错误:
+${error.stack}`;
+                
+                showResult(resultId, message, 'error');
+            }
+        }
+
+        async function testAuthAPI() {
+            const resultId = 'apiResult';
+            showResult(resultId, '正在测试...', 'info');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/files`, {
+                    headers: {
+                        'Authorization': 'Bearer test-token'
+                    }
+                });
+                
+                const message = `状态码: ${response.status}
+
+${response.status === 401 ? '✅ 正常！服务器正确返回 401 未授权（说明端点工作正常）' : '响应: ' + await response.text()}
+
+CORS 头信息:
+Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin') || '未设置'}`;
+                
+                showResult(resultId, message, response.status === 401 ? 'success' : 'info');
+            } catch (error) {
+                const message = `❌ 请求失败！
+错误: ${error.message}
+
+这可能是 CORS 问题。
+
+详细错误:
+${error.stack}`;
+                
+                showResult(resultId, message, 'error');
+            }
+        }
+
+        // 页面加载时显示当前来源
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('当前页面来源:', window.location.origin);
+            console.log('测试服务器:', SERVER_URL);
+        });
+    </script>
+</body>
+</html>

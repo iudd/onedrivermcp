@@ -40,11 +40,39 @@ app.use(helmet({
 // Compression
 app.use(compression());
 
-// CORS configuration
+// CORS configuration - 动态配置允许的来源
+const getAllowedOrigins = () => {
+  if (process.env.NODE_ENV === 'production') {
+    // 生产环境：从环境变量读取允许的来源
+    const allowedOrigins = process.env.ALLOWED_ORIGINS;
+    if (allowedOrigins) {
+      return allowedOrigins.split(',').map(origin => origin.trim());
+    }
+    // 如果没有设置 ALLOWED_ORIGINS，默认允许 Render 部署的 URL
+    const renderUrl = process.env.RENDER_EXTERNAL_URL || 'https://onedrivermcp.onrender.com';
+    return [renderUrl];
+  }
+  // 开发环境：允许本地开发服务器
+  return ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080'];
+};
+
+const allowedOrigins = getAllowedOrigins();
+logger.info(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    // 允许无来源的请求（如 Postman、curl 等）
+    if (!origin) {
+      return callback(null, true);
+    }
+    // 检查来源是否在允许列表中
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn(`CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
@@ -58,14 +86,25 @@ app.use(rateLimiter);
 // Session management
 app.use(sessionMiddleware);
 
-// Health check endpoint
+// Health check endpoint - 增强版本，包含配置信息
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const healthData = {
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-  });
+    environment: process.env.NODE_ENV || 'development',
+    cors: {
+      allowedOrigins: getAllowedOrigins(),
+      requestOrigin: req.headers.origin || 'none',
+    },
+    oauth: {
+      configured: !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET),
+      redirectUri: process.env.MICROSOFT_REDIRECT_URI || 'not configured',
+    },
+  };
+
+  res.status(200).json(healthData);
 });
 
 // API routes
@@ -110,9 +149,22 @@ process.on('SIGINT', () => {
 
 // Start server
 server.listen(PORT, () => {
-  logger.info(`🚀 OneDrive MCP Server running on port ${PORT}`);
+  logger.info('='.repeat(60));
+  logger.info('🚀 OneDrive MCP Server Started');
+  logger.info('='.repeat(60));
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🌐 Port: ${PORT}`);
   logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+  logger.info(`🔐 OAuth configured: ${!!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET)}`);
+  logger.info(`🌍 CORS allowed origins: ${getAllowedOrigins().join(', ')}`);
+
+  if (process.env.NODE_ENV === 'production') {
+    const renderUrl = process.env.RENDER_EXTERNAL_URL || 'https://onedrivermcp.onrender.com';
+    logger.info(`🚀 Production URL: ${renderUrl}`);
+    logger.info(`📝 OAuth Redirect URI: ${process.env.MICROSOFT_REDIRECT_URI || 'NOT CONFIGURED'}`);
+  }
+
+  logger.info('='.repeat(60));
 });
 
 export default app;
